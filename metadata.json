@@ -1,0 +1,6 @@
+{
+  "name": "OpenWISP MCP Server",
+  "description": "Pure Model Context Protocol (MCP) Server for OpenWISP REST API with SSE, HTTP JSON-RPC 2.0, and STDIO CLI transport for McpHub and AI assistants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
