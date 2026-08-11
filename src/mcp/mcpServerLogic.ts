@@ -3,14 +3,20 @@ import {
   McpJsonRpcResponse,
   McpConnectionConfig
 } from '../types';
-import { OPENWISP_MCP_TOOLS } from '../data/openwispTools';
+import { getOpenWispTools } from '../data/openwispTools';
 import { executeOpenWispApiCall } from './openwispClient';
 
 export async function processMcpMessage(
   request: McpJsonRpcRequest,
-  config: McpConnectionConfig
+  config: McpConnectionConfig,
+  mode: 'diagnostic' | 'full' = 'full'
 ): Promise<McpJsonRpcResponse> {
   const { id, method, params } = request;
+  const tools = getOpenWispTools(mode);
+  const serverName = mode === 'diagnostic' ? 'openwisp-mcp-diagnostic' : 'openwisp-mcp-full';
+  const serverDesc = mode === 'diagnostic'
+    ? 'Model Context Protocol Server for OpenWISP Read-Only Diagnostics & Auditing'
+    : 'Model Context Protocol Server for OpenWISP Network Management & Provisioning';
 
   // Handle MCP Protocol Initialize
   if (method === 'initialize') {
@@ -25,9 +31,9 @@ export async function processMcpMessage(
           resources: { listChanged: true }
         },
         serverInfo: {
-          name: 'openwisp-mcp-server',
+          name: serverName,
           version: '1.0.0',
-          description: 'Model Context Protocol Server for OpenWISP Network Management'
+          description: serverDesc
         }
       }
     };
@@ -44,7 +50,7 @@ export async function processMcpMessage(
 
   // 1. tools/list
   if (method === 'tools/list') {
-    const formattedTools = OPENWISP_MCP_TOOLS.map(tool => {
+    const formattedTools = tools.map(tool => {
       const properties: Record<string, any> = {};
       const required: string[] = [];
 
@@ -89,14 +95,14 @@ export async function processMcpMessage(
     const toolName = params?.name;
     const toolArgs = params?.arguments || {};
 
-    const toolDef = OPENWISP_MCP_TOOLS.find(t => t.name === toolName);
+    const toolDef = tools.find(t => t.name === toolName);
     if (!toolDef) {
       return {
         jsonrpc: '2.0',
         id,
         error: {
           code: -32601,
-          message: `Tool not found: '${toolName}'. Use tools/list to see available OpenWISP tools.`
+          message: `Tool not found in ${mode} mode: '${toolName}'. Use tools/list to inspect available tools.`
         }
       };
     }
@@ -118,7 +124,8 @@ export async function processMcpMessage(
             endpoint: executionResult.endpoint,
             method: executionResult.method,
             status: executionResult.rawStatus,
-            isMockSandbox: executionResult.isMock
+            isMockSandbox: executionResult.isMock,
+            mcpServerMode: mode
           }
         }
       };
@@ -133,6 +140,7 @@ export async function processMcpMessage(
       };
     }
   }
+
 
   // 3. prompts/list
   if (method === 'prompts/list') {

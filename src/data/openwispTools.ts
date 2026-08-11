@@ -314,3 +314,19 @@ export const OPENWISP_MCP_TOOLS: McpToolDefinition[] = [
     sampleArguments: { organization: 'default' }
   }
 ];
+
+// Export full tool definitions
+export const OPENWISP_FULL_TOOLS: McpToolDefinition[] = OPENWISP_MCP_TOOLS;
+
+// Filter diagnostic tools (read-only GET methods)
+export const OPENWISP_DIAGNOSTIC_TOOLS: McpToolDefinition[] = OPENWISP_MCP_TOOLS.filter(
+  tool => tool.method === 'GET'
+);
+
+// Helper function to get tools by server mode
+export function getOpenWispTools(mode: 'diagnostic' | 'full' = 'full'): McpToolDefinition[] {
+  if (mode === 'diagnostic') {
+    return OPENWISP_DIAGNOSTIC_TOOLS;
+  }
+  return OPENWISP_FULL_TOOLS;
+}

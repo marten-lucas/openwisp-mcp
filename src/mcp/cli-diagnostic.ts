@@ -2,16 +2,13 @@
 import { processMcpMessage } from './mcpServerLogic.js';
 import { McpConnectionConfig, McpJsonRpcRequest } from '../types.js';
 
-const isDiagnosticFlag = process.argv.includes('--diagnostic') || process.env.OPENWISP_MCP_MODE === 'diagnostic';
-const mode: 'diagnostic' | 'full' = isDiagnosticFlag ? 'diagnostic' : 'full';
-
 const config: McpConnectionConfig = {
   baseUrl: process.env.OPENWISP_BASE_URL || process.env.OPENWISP_URL || '',
   apiToken: process.env.OPENWISP_API_TOKEN || process.env.OPENWISP_TOKEN || '',
   useMockSandbox: process.env.OPENWISP_MOCK_SANDBOX === 'true' || (!process.env.OPENWISP_BASE_URL && !process.env.OPENWISP_URL)
 };
 
-// Handle STDIO transport for McpHub / Claude Desktop
+// Handle STDIO transport for McpHub / Claude Desktop (Diagnostic Mode)
 let buffer = '';
 
 process.stdin.on('data', async (chunk) => {
@@ -26,7 +23,7 @@ process.stdin.on('data', async (chunk) => {
 
     try {
       const request: McpJsonRpcRequest = JSON.parse(trimmed);
-      const response = await processMcpMessage(request, config, mode);
+      const response = await processMcpMessage(request, config, 'diagnostic');
 
       process.stdout.write(JSON.stringify(response) + '\n');
     } catch (err: any) {
@@ -43,4 +40,4 @@ process.stdin.on('data', async (chunk) => {
   }
 });
 
-process.stderr.write(`[openwisp-mcp-${mode}] Started via STDIO transport (${mode === 'diagnostic' ? 'Read-Only Diagnostic Mode' : 'Full Management Mode'})\n`);
+process.stderr.write(`[openwisp-mcp-diagnostic] Started via STDIO transport (Read-Only Diagnostic Mode)\n`);
