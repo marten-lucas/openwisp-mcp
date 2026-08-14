@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "workspaces": [
-    "packages/full",
-    "packages/diagnostic"
+    "packages/openwisp-full",
+    "packages/openwisp-diagnostic"
   ],
   "scripts": {
     "dev": "tsx src/mcp/cli.ts",
