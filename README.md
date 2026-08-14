@@ -7,7 +7,7 @@ A secure, MCP-only server for OpenWISP.
 - Diagnostic and full MCP toolsets
 - Secure defaults: no silent mock fallback, no web UI
 - Optional explicit mock sandbox for local testing
-- Works with STDIO via `npm run mcp`, `npm run mcp:diagnostic`, or `npm run mcp:full`
+- Runs as a secure MCP-only service through the monorepo wrappers: `npm run variant:diagnostic` and `npm run variant:full`
 
 ## Security
 
@@ -47,14 +47,17 @@ npm run variant:full
 
 ## Tool coverage
 
+The server is aligned to the documented OpenWISP Controller API families most relevant to secure MCP operations:
+
 - Users & auth
-- Devices & controller
-- Templates
+- Devices & device connections
+- Credentials & tokens
+- Templates & config management
 - Geo & locations
 - Certificates & VPN
 - Network topology
 - RADIUS & WiFi
-- Organizations
+- Organizations & groups
 
 ## Notes
 
