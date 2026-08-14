@@ -1,0 +1,12 @@
+{
+  "name": "openwisp-mcp-secure-full",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "openwisp-mcp-full": "bin/openwisp-mcp-full.mjs"
+  },
+  "scripts": {
+    "start": "node bin/openwisp-mcp-full.mjs"
+  }
+}

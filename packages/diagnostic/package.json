@@ -1,0 +1,12 @@
+{
+  "name": "openwisp-mcp-secure-diagnostic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "openwisp-mcp-diagnostic": "bin/openwisp-mcp-diagnostic.mjs"
+  },
+  "scripts": {
+    "start": "node bin/openwisp-mcp-diagnostic.mjs"
+  }
+}

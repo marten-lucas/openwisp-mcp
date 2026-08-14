@@ -17,11 +17,18 @@ A secure, MCP-only server for OpenWISP.
 - `OPENWISP_ALLOW_HTTP=true` required for HTTP URLs
 - Secrets are cleared from `process.env` after loading
 
+## Monorepo layout
+
+- `packages/diagnostic`: dedicated read-only variant wrapper
+- `packages/full`: dedicated full-management variant wrapper
+- root `src/`: shared secure MCP runtime used by both variants
+
 ## Quick start
 
 ```bash
 npm install
-npm run mcp
+npm run variant:diagnostic
+npm run variant:full
 ```
 
 ## Environment variables
