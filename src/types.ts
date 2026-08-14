@@ -104,7 +104,7 @@ export interface McpToolParameter {
 
 export interface McpToolDefinition {
   name: string;
-  category: 'Users & Auth' | 'Devices & Controller' | 'Templates' | 'Network Topology' | 'RADIUS & WiFi' | 'Organizations';
+  category: 'Users & Auth' | 'Devices & Controller' | 'Templates' | 'Network Topology' | 'RADIUS & WiFi' | 'Organizations' | 'Geo & Locations' | 'Certificates & VPN';
   description: string;
   endpoint: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';

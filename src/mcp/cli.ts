@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 import { processMcpMessage } from './mcpServerLogic.js';
 import { McpConnectionConfig, McpJsonRpcRequest } from '../types.js';
+import { loadRuntimeConfig } from './runtimeConfig.js';
 
 const isDiagnosticFlag = process.argv.includes('--diagnostic') || process.env.OPENWISP_MCP_MODE === 'diagnostic';
 const mode: 'diagnostic' | 'full' = isDiagnosticFlag ? 'diagnostic' : 'full';
 
-const config: McpConnectionConfig = {
-  baseUrl: process.env.OPENWISP_BASE_URL || process.env.OPENWISP_URL || '',
-  apiToken: process.env.OPENWISP_API_TOKEN || process.env.OPENWISP_TOKEN || '',
-  useMockSandbox: process.env.OPENWISP_MOCK_SANDBOX === 'true' || (!process.env.OPENWISP_BASE_URL && !process.env.OPENWISP_URL)
-};
+const config: McpConnectionConfig = loadRuntimeConfig();
 
 // Handle STDIO transport for McpHub / Claude Desktop
 let buffer = '';

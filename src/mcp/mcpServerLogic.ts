@@ -4,7 +4,7 @@ import {
   McpConnectionConfig
 } from '../types';
 import { getOpenWispTools } from '../data/openwispTools';
-import { executeOpenWispApiCall } from './openwispClient';
+import { executeOpenWispApiCall } from './secureOpenwispClient';
 
 export async function processMcpMessage(
   request: McpJsonRpcRequest,
