@@ -20,7 +20,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
