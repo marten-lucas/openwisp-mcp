@@ -31,6 +31,52 @@ npm run variant:diagnostic
 npm run variant:full
 ```
 
+## Docker / SSE deployment
+
+A prebuilt image is published to `ghcr.io/marten-lucas/openwisp-mcp`.
+It runs the MCP server over **SSE** (HTTP) so remote agents (e.g. Hermes) can
+connect without a local stdio process.
+
+The image contains a small `server.mjs` bridge that spawns the correct variant
+bin (stdio) and exposes it via `SSEServerTransport` on port `8000`:
+
+- `GET /sse` — the SSE endpoint (MCP client connects here)
+- `POST /message` — the message channel for the SSE session
+
+### Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MCP_VARIANT` | Yes | `diagnostic` (read-only) or `full` |
+| `OPENWISP_BASE_URL` | Yes | OpenWISP controller URL |
+| `OPENWISP_API_TOKEN` | Yes | Bearer token for live mode |
+| `MCP_PORT` | No | Listen port (default `8000`) |
+
+Plus the same variables listed under
+[Environment variables](#environment-variables) below
+(`OPENWISP_ALLOW_HTTP`, mock sandbox, etc.).
+
+### Example
+
+```bash
+docker run -p 8000:8000 \
+  -e MCP_VARIANT=diagnostic \
+  -e OPENWISP_BASE_URL=https://openwisp.example.com \
+  -e OPENWISP_API_TOKEN=your-api-token \
+  ghcr.io/marten-lucas/openwisp-mcp:latest
+```
+
+```yaml
+# Coolify / Docker Compose
+services:
+  openwisp-diag-mcp:
+    image: ghcr.io/marten-lucas/openwisp-mcp:latest
+    environment:
+      - MCP_VARIANT=diagnostic
+      - OPENWISP_BASE_URL=${OPENWISP_BASE_URL}
+      - OPENWISP_API_TOKEN=${OPENWISP_API_TOKEN}
+```
+
 ## Environment variables
 
 | Variable | Purpose |
