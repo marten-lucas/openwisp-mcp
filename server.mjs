@@ -32,12 +32,32 @@ app.get('/sse', async (req, res) => {
 
   sessions.set(sse.sessionId, sse);
 
-  sse.onmessage = (msg) => stdio.send(msg);
-  stdio.onmessage = (msg) => sse.send(msg);
+  // Track connection liveness so a late stdio reply after SSE close does not
+  // crash the process (SSEServerTransport.send throws 'Not connected').
+  let sseOpen = true;
+  let stdioClosed = false;
+
+  sse.onmessage = (msg) => {
+    if (!stdioClosed) {
+      stdio.send(msg).catch(() => {});
+    }
+  };
+  stdio.onmessage = (msg) => {
+    if (sseOpen) {
+      try {
+        sse.send(msg);
+      } catch (err) {
+        // SSE already closed — drop the message instead of crashing.
+        sseOpen = false;
+      }
+    }
+  };
 
   sse.onclose = () => {
+    sseOpen = false;
     sessions.delete(sse.sessionId);
     stdio.close();
+    stdioClosed = true;
   };
 
   await stdio.start();
