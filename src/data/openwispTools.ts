@@ -144,15 +144,15 @@ export const OPENWISP_MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'openwisp_update_device',
     category: 'Devices & Controller',
-    description: 'Update network device metadata, assigned organization, or templates.',
+    description: 'Update a device (PATCH /controller/device/{id}/). Use the `templates` parameter to assign, unassign or reorder configuration templates: pass the FULL ordered list of template UUIDs under `config.templates` — the order matters and defines render/merge order. After assignment OpenWISP itself renders and deploys the merged configuration to the device (no extra apply step needed); verify via `openwisp_get_device` field `config.status` (= applied/modified/error) or `openwisp_list_devices` filter `status`. To inspect the resulting merged config, use `openwisp_get_device_config` (returns a tar.gz — extract it to read the rendered files).',
     endpoint: '/api/v1/controller/device/{id}/',
     method: 'PATCH',
     parameters: [
       { name: 'id', type: 'string', description: 'Device UUID or ID', required: true },
       { name: 'name', type: 'string', description: 'Updated device name', required: false },
-      { name: 'templates', type: 'array', description: 'List of template UUIDs to assign to this device under config.templates', required: false }
+      { name: 'templates', type: 'array', description: 'FULL ordered list of template UUIDs to assign to this device (stored under config.templates). Order is significant — replace the whole list to unassign or reorder. OpenWISP auto-deploys after assignment.', required: false }
     ],
-    sampleArguments: { id: 'dev-001', name: 'AP-Office-Main-Updated' }
+    sampleArguments: { id: 'dev-001', templates: ['tpl-uuid-1', 'tpl-uuid-2'] }
   },
   {
     name: 'openwisp_delete_device',
