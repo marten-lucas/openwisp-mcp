@@ -13,6 +13,11 @@ export interface OpenWispDevice {
   created: string;
   modified: string;
   templates?: string[];
+  config?: {
+    templates?: string[];
+    status?: string; // applied / modified / error
+    backend?: string;
+  };
   location?: {
     latitude: number;
     longitude: number;
@@ -91,6 +96,34 @@ export interface OpenWispRadiusSession {
   acct_input_octets: number;
   acct_output_octets: number;
   organization: string;
+}
+
+export interface UciSection {
+  /**
+   * Leaf values are strings (option values) or string arrays (list entries).
+   * Nested keys point to sub-sections, so the value type allows arbitrary
+   * objects to reflect the recursive UCI structure.
+   */
+  [key: string]: string | string[] | Record<string, any>;
+}
+
+export interface ParsedUciPackage {
+  /** File name under etc/config/ (e.g. 'firewall', 'network', 'system'). */
+  package: string;
+  /** Raw UCI source exactly as rendered by netjsonconfig. */
+  raw: string;
+  /** UCI nested by config type -> section name -> key/value(s). */
+  config: Record<string, UciSection>;
+}
+
+export interface PreviewDeviceConfigResult {
+  deviceId: string;
+  /** 'ok' when the tarball parsed, 'missing' when a package filter matched nothing. */
+  status: 'ok' | 'missing';
+  /** Backend used for rendering, e.g. 'netjsonconfig.OpenWrt'. */
+  backend?: string;
+  /** All packages keyed by name, or a single package when `package` is set. */
+  config: Record<string, ParsedUciPackage> | ParsedUciPackage;
 }
 
 export interface McpToolParameter {

@@ -14,10 +14,11 @@
     "mcp": "tsx src/mcp/cli.ts",
     "mcp:diagnostic": "tsx src/mcp/cli-diagnostic.ts",
     "mcp:full": "tsx src/mcp/cli-full.ts",
-    "variant:diagnostic": "node packages/diagnostic/bin/openwisp-mcp-diagnostic.mjs",
-    "variant:full": "node packages/full/bin/openwisp-mcp-full.mjs",
+    "variant:diagnostic": "node packages/openwisp-diagnostic/bin/openwisp-mcp-diagnostic.mjs",
+    "variant:full": "node packages/openwisp-full/bin/openwisp-mcp-full.mjs",
     "clean": "rm -rf dist server.cjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/mcp/*.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

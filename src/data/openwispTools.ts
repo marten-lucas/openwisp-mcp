@@ -199,6 +199,54 @@ export const OPENWISP_MCP_TOOLS: McpToolDefinition[] = [
     sampleArguments: { id: 'dev-001' }
   },
   {
+    name: 'openwisp_get_device_templates',
+    category: 'Devices & Controller',
+    description: "Get the ordered list of configuration template UUIDs assigned to a device. Templates render/merge in list order. Use this before assigning/unassigning so you can hand the full ordered list back to the controller, or simply pass single IDs to `openwisp_assign_template` / `openwisp_unassign_template` which handle the merge for you.",
+    endpoint: '/api/v1/controller/device/{id}/',
+    method: 'GET',
+    parameters: [
+      { name: 'id', type: 'string', description: 'Device UUID or ID', required: true }
+    ],
+    sampleArguments: { id: 'dev-001' }
+  },
+  {
+    name: 'openwisp_assign_template',
+    category: 'Devices & Controller',
+    description: 'Assign one or more templates to a device without typing the whole ordered list. The given template IDs are added to the device\'s existing `config.templates` list (existing order is preserved, duplicates removed). Optionally insert at a specific `position` (0-based index) instead of appending. OpenWISP auto-renders and deploys the merged config. Two checks: `config.status` on the device reports the deployment state (applied/modified/error) — i.e. whether the device accepted the new config — while `openwisp_preview_device_config` shows the actual rendered UCI content (i.e. whether your template produced the right config). To reorder, call `openwisp_update_device` with the full ordered list.',
+    endpoint: '/api/v1/controller/device/{id}/',
+    method: 'PATCH',
+    parameters: [
+      { name: 'id', type: 'string', description: 'Device UUID or ID', required: true },
+      { name: 'templateIds', type: 'array', description: 'One or more template UUIDs to add to the device (appended to the existing ordered list).', required: true },
+      { name: 'position', type: 'number', description: 'Optional 0-based index at which to insert the template IDs. Omit to append at the end.', required: false }
+    ],
+    sampleArguments: { id: 'dev-001', templateIds: ['tpl-vpn-wireguard'] }
+  },
+  {
+    name: 'openwisp_unassign_template',
+    category: 'Devices & Controller',
+    description: 'Remove one or more templates from a device by UUID. The IDs are removed from the device\'s existing `config.templates` list; the remaining order is preserved. OpenWISP auto-renders and deploys the merged config. Two checks: `config.status` on the device reports the deployment state (applied/modified/error) — i.e. whether the device accepted the new config — while `openwisp_preview_device_config` shows the actual rendered UCI content (i.e. whether your template produced the right config). Required organization templates cannot be removed.',
+    endpoint: '/api/v1/controller/device/{id}/',
+    method: 'PATCH',
+    parameters: [
+      { name: 'id', type: 'string', description: 'Device UUID or ID', required: true },
+      { name: 'unassign', type: 'array', description: 'One or more template UUIDs to remove from the device.', required: true }
+    ],
+    sampleArguments: { id: 'dev-001', unassign: ['tpl-guest-captive'] }
+  },
+  {
+    name: 'openwisp_preview_device_config',
+    category: 'Devices & Controller',
+    description: 'Preview the rendered UCI configuration a device will receive, before/after assigning templates. Downloads the tar.gz from the controller, unzips it in-memory, and parses the `etc/config/*` files into JSON (like `uci show`). Optionally filter to a single package by name (e.g. `firewall`, `network`, `system`, `wireless`, `dhcp`, `dnsmasq`, `firewall4`) using the `package` parameter to answer "did my template produce the right config?". Returns `status: ok|missing` per package.',
+    endpoint: '/api/v1/controller/device/{id}/configuration/',
+    method: 'GET',
+    parameters: [
+      { name: 'id', type: 'string', description: 'Device UUID or ID', required: true },
+      { name: 'package', type: 'string', description: 'Optional: restrict output to a single UCI package (the file name under etc/config/, e.g. firewall/network/system/wireless). Omit to return every package.', required: false }
+    ],
+    sampleArguments: { id: 'dev-001', package: 'firewall' }
+  },
+  {
     name: 'openwisp_list_device_commands',
     category: 'Devices & Controller',
     description: 'List commands previously issued to a device.',

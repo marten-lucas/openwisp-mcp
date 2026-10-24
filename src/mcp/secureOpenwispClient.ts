@@ -15,6 +15,9 @@ import {
   MOCK_ORGANIZATIONS,
   MOCK_RADIUS_SESSIONS,
 } from '../data/mockOpenwisp';
+import {
+  fetchAndPreviewDeviceConfig,
+} from './uciParser';
 
 type ToolResult = { data: any; isMock: boolean; rawStatus: number; endpoint: string; method: string };
 
@@ -34,6 +37,10 @@ const toolEndpoints: Record<string, { endpoint: string; method: string }> = {
   openwisp_activate_device: { endpoint: '/api/v1/controller/device/{id}/activate/', method: 'POST' },
   openwisp_deactivate_device: { endpoint: '/api/v1/controller/device/{id}/deactivate/', method: 'POST' },
   openwisp_get_device_config: { endpoint: '/api/v1/controller/device/{id}/configuration/', method: 'GET' },
+  openwisp_get_device_templates: { endpoint: '/api/v1/controller/device/{id}/', method: 'GET' },
+  openwisp_assign_template: { endpoint: '/api/v1/controller/device/{id}/', method: 'PATCH' },
+  openwisp_unassign_template: { endpoint: '/api/v1/controller/device/{id}/', method: 'PATCH' },
+  openwisp_preview_device_config: { endpoint: '/api/v1/controller/device/{id}/configuration/', method: 'GET' },
   openwisp_list_device_connections: { endpoint: '/api/v1/controller/device/{id}/connection/', method: 'GET' },
   openwisp_create_device_connection: { endpoint: '/api/v1/controller/device/{id}/connection/', method: 'POST' },
   openwisp_get_device_connection: { endpoint: '/api/v1/controller/device/{device_id}/connection/{connection_id}/', method: 'GET' },
@@ -152,6 +159,34 @@ function pickQuery(args: Record<string, any>, map: Record<string, string>): URLS
   return query;
 }
 
+/**
+ * Merge new template ids into the device's existing ordered list.
+ * - `position` (0-based): insert the new ids at that index; `undefined` appends.
+ * - Without a position, existing order is preserved and new IDs are appended.
+ * - With a position, requested IDs are moved/inserted there in the given order.
+ */
+function normalizeTemplateIds(ids: unknown, argumentName: string): string[] {
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+    throw new Error(`${argumentName} must be an array of non-empty template IDs`);
+  }
+  return [...new Set(ids)];
+}
+
+function mergeTemplates(current: string[], newIds: string[], position?: number): string[] {
+  const existing = [...new Set(current)];
+  const requested = [...new Set(newIds)];
+  if (position === undefined) {
+    return [...existing, ...requested.filter((id) => !existing.includes(id))];
+  }
+  if (!Number.isFinite(position)) {
+    throw new Error('position must be a finite number');
+  }
+
+  const remaining = existing.filter((id) => !requested.includes(id));
+  const index = Math.min(Math.max(0, Math.trunc(position)), remaining.length);
+  return [...remaining.slice(0, index), ...requested, ...remaining.slice(index)];
+}
+
 function pickDeviceFilters(args: Record<string, any>): URLSearchParams {
   return pickQuery(args, {
     organization: 'organization',
@@ -210,7 +245,12 @@ function requestFromTool(toolName: string, args: Record<string, any>): { urlPath
   return { urlPath, method: tool.method, body: payload };
 }
 
-async function requestJson(url: string, method: string, token: string, body?: unknown): Promise<{ json: any; status: number }> {
+async function requestJson(
+  url: string,
+  method: string,
+  token: string,
+  body?: unknown
+): Promise<{ json: any; status: number }> {
   const res = await fetch(url, {
     method,
     headers: headersFor(token, true),
@@ -227,6 +267,36 @@ async function requestJson(url: string, method: string, token: string, body?: un
     throw new Error(`HTTP ${res.status}: ${parsed.detail || parsed.message || text}`);
   }
   return { json: parsed, status: res.status };
+}
+
+async function patchDeviceTemplates(
+  deviceId: string,
+  token: string,
+  baseUrl: string,
+  operation: 'assign' | 'unassign',
+  templateIds: string[],
+  position?: number
+): Promise<{ json: any; status: number }> {
+  const deviceUrl = `${cleanBaseUrl(baseUrl)}/api/v1/controller/device/${encodeURIComponent(deviceId)}/`;
+  const { json: device } = await requestJson(deviceUrl, 'GET', token);
+  if (!device || typeof device !== 'object' || !('config' in device)) {
+    throw new Error('OpenWISP device response did not include config; refusing to overwrite template assignments');
+  }
+
+  const config = device.config && typeof device.config === 'object' ? device.config : {};
+  const current = config.templates ?? [];
+  if (!Array.isArray(current) || current.some((id: unknown) => typeof id !== 'string')) {
+    throw new Error('OpenWISP device config.templates was not a string array; refusing to overwrite template assignments');
+  }
+
+  const uniqueCurrent = [...new Set(current)];
+  const updated = operation === 'assign'
+    ? mergeTemplates(uniqueCurrent, templateIds, position)
+    : uniqueCurrent.filter((id: string) => !templateIds.includes(id));
+
+  return requestJson(deviceUrl, 'PATCH', token, {
+    config: { templates: updated },
+  });
 }
 
 function livePayload(toolName: string, args: Record<string, any>): { urlPath: string; method: string; body?: unknown; query?: URLSearchParams } {
@@ -298,6 +368,13 @@ function livePayload(toolName: string, args: Record<string, any>): { urlPath: st
         urlPath: '/api/v1/radius/usage/',
         method: 'GET',
         query: pickQuery(args, { organization: 'organization', username: 'username' }),
+      };
+    case 'openwisp_get_device_templates':
+      return requestFromTool(toolName, args);
+    case 'openwisp_preview_device_config':
+      return {
+        urlPath: `/api/v1/controller/device/${encodeURIComponent(String(args.id))}/configuration/`,
+        method: 'GET',
       };
     default:
       return requestFromTool(toolName, args);
@@ -389,6 +466,102 @@ function executeMockApiCall(toolName: string, args: Record<string, any>): ToolRe
       return { data: { id: args.id, status: 'offline' }, isMock: true, rawStatus: 200, endpoint: '/api/v1/controller/device/{id}/deactivate/', method: 'POST' };
     case 'openwisp_get_device_config':
       return { data: { device_id: args.id, config: { templates: [] }, tarball: 'mock' }, isMock: true, rawStatus: 200, endpoint: '/api/v1/controller/device/{id}/configuration/', method: 'GET' };
+    case 'openwisp_get_device_templates': {
+      const device = MOCK_DEVICES.find((d) => d.id === args.id);
+      return {
+        data: {
+          id: device?.id ?? args.id,
+          name: device?.name ?? 'Unknown',
+          templates: device?.config?.templates ?? device?.templates ?? [],
+        },
+        isMock: true,
+        rawStatus: 200,
+        endpoint: '/api/v1/controller/device/{id}/',
+        method: 'GET',
+      };
+    }
+    case 'openwisp_assign_template': {
+      const device = MOCK_DEVICES.find((d) => d.id === args.id);
+      const current: string[] = device?.config?.templates ?? device?.templates ?? [];
+      const templateIds = normalizeTemplateIds(args.templateIds, 'templateIds');
+      const merged = mergeTemplates(current, templateIds, args.position);
+      return {
+        data: {
+          id: device?.id ?? args.id,
+          name: device?.name ?? 'Unknown',
+          config: { templates: merged, status: 'modified', backend: 'netjsonconfig.OpenWrt' },
+        },
+        isMock: true,
+        rawStatus: 200,
+        endpoint: '/api/v1/controller/device/{id}/',
+        method: 'PATCH',
+      };
+    }
+    case 'openwisp_unassign_template': {
+      const device = MOCK_DEVICES.find((d) => d.id === args.id);
+      const current: string[] = device?.config?.templates ?? device?.templates ?? [];
+      const remove = new Set(normalizeTemplateIds(args.unassign, 'unassign'));
+      const merged = current.filter((t) => !remove.has(t));
+      return {
+        data: {
+          id: device?.id ?? args.id,
+          name: device?.name ?? 'Unknown',
+          config: { templates: merged, status: 'modified', backend: 'netjsonconfig.OpenWrt' },
+        },
+        isMock: true,
+        rawStatus: 200,
+        endpoint: '/api/v1/controller/device/{id}/',
+        method: 'PATCH',
+      };
+    }
+    case 'openwisp_preview_device_config': {
+      const device = MOCK_DEVICES.find((d) => d.id === args.id);
+      const templates = device?.config?.templates ?? device?.templates ?? [];
+      // Minimal representative UCI (etc/config/*) mirroring the real tarball layout,
+      // keyed by package name so the agent sees the same shape as the live endpoint.
+      const packages: Record<string, { raw: string; config: Record<string, any> }> = {
+        firewall: {
+          raw: "# netjsonconfig.OpenWrt rendered config\nconfig rule 'forward'\n  option target 'ACCEPT'\n",
+          config: { rule: { forward: { target: 'ACCEPT' } } },
+        },
+        network: {
+          raw: "# netjsonconfig.OpenWrt rendered config\nconfig interface 'lan'\n  option type 'bridge'\n  option ipaddr '192.168.1.1'\n  list dns '192.168.1.1'\n",
+          config: { interface: { lan: { type: 'bridge', ipaddr: '192.168.1.1', dns: ['192.168.1.1'] } } },
+        },
+        system: {
+          raw: "# netjsonconfig.OpenWrt rendered config\nconfig timeserver 'ntp'\n  option server 'pool.ntp.org'\n",
+          config: { timeserver: { ntp: { server: 'pool.ntp.org' } } },
+        },
+      };
+      if (args.package) {
+        const filtered = packages[args.package];
+        return {
+          data: {
+            deviceId: device?.id ?? args.id,
+            status: filtered ? 'ok' : 'missing',
+            backend: 'netjsonconfig.OpenWrt',
+            config: filtered ?? { package: args.package, raw: '', config: {} },
+          },
+          isMock: true,
+          rawStatus: 200,
+          endpoint: '/api/v1/controller/device/{id}/configuration/',
+          method: 'GET',
+        };
+      }
+      return {
+        data: {
+          deviceId: device?.id ?? args.id,
+          status: 'ok',
+          backend: 'netjsonconfig.OpenWrt',
+          templates,
+          config: packages,
+        },
+        isMock: true,
+        rawStatus: 200,
+        endpoint: '/api/v1/controller/device/{id}/configuration/',
+        method: 'GET',
+      };
+    }
     case 'openwisp_list_device_commands':
       return { data: { results: [] }, isMock: true, rawStatus: 200, endpoint: '/api/v1/controller/device/{device_id}/command/', method: 'GET' };
     case 'openwisp_execute_device_command':
@@ -428,10 +601,40 @@ export async function executeOpenWispApiCall(toolName: string, args: Record<stri
     throw new Error(`Unknown OpenWISP MCP tool: ${toolName}`);
   }
 
+  if (toolName === 'openwisp_assign_template' || toolName === 'openwisp_unassign_template') {
+    const deviceId = String(args.id ?? '');
+    if (!deviceId) throw new Error('id is required');
+    const operation = toolName === 'openwisp_assign_template' ? 'assign' : 'unassign';
+    const templateIds = normalizeTemplateIds(
+      operation === 'assign' ? args.templateIds : args.unassign,
+      operation === 'assign' ? 'templateIds' : 'unassign'
+    );
+    const result = await patchDeviceTemplates(
+      deviceId,
+      config.apiToken,
+      config.baseUrl,
+      operation,
+      templateIds,
+      args.position
+    );
+    return {
+      data: result.json,
+      isMock: false,
+      rawStatus: result.status,
+      endpoint: `/api/v1/controller/device/${encodeURIComponent(deviceId)}/`,
+      method: 'PATCH',
+    };
+  }
+
   const payload = livePayload(toolName, args);
   const baseUrl = cleanBaseUrl(config.baseUrl);
   const query = payload.query?.toString() ? `?${payload.query.toString()}` : '';
   const url = `${baseUrl}${payload.urlPath}${query}`;
+
+  if (toolName === 'openwisp_preview_device_config') {
+    const preview = await fetchAndPreviewDeviceConfig(String(args.id), url, config.apiToken, args.package);
+    return { data: preview, isMock: false, rawStatus: 200, endpoint: payload.urlPath, method: payload.method };
+  }
 
   const { json, status } = await requestJson(url, payload.method, config.apiToken, payload.body);
   return {

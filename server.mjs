@@ -1,4 +1,5 @@
 import express from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import path from 'node:path';
@@ -19,15 +20,39 @@ if (!bin) {
   process.exit(1);
 }
 
+const httpBearerToken = process.env.MCP_HTTP_BEARER_TOKEN;
+delete process.env.MCP_HTTP_BEARER_TOKEN;
+if (!httpBearerToken || httpBearerToken.length < 32) {
+  throw new Error('MCP_HTTP_BEARER_TOKEN is required and must be at least 32 characters');
+}
+
 const app = express();
 const sessions = new Map();
 
-app.get('/sse', async (req, res) => {
+function requireHttpAuth(req, res, next) {
+  const provided = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '')?.[1];
+  if (!provided) {
+    res.set('WWW-Authenticate', 'Bearer').status(401).end();
+    return;
+  }
+
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(httpBearerToken);
+  if (providedBuffer.length !== expectedBuffer.length || !timingSafeEqual(providedBuffer, expectedBuffer)) {
+    res.set('WWW-Authenticate', 'Bearer').status(401).end();
+    return;
+  }
+  next();
+}
+
+app.get('/sse', requireHttpAuth, async (req, res) => {
   const sse = new SSEServerTransport('/message', res);
+  const childEnv = { ...process.env };
+  delete childEnv.MCP_HTTP_BEARER_TOKEN;
   const stdio = new StdioClientTransport({
     command: 'node',
     args: [bin],
-    env: process.env,
+    env: childEnv,
   });
 
   sessions.set(sse.sessionId, sse);
@@ -64,7 +89,7 @@ app.get('/sse', async (req, res) => {
   await sse.start();
 });
 
-app.post('/message', async (req, res) => {
+app.post('/message', requireHttpAuth, async (req, res) => {
   const sessionId = req.query.sessionId;
   const sse = sessions.get(sessionId);
   if (sse) {
